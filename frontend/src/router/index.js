@@ -52,6 +52,9 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth) {
     const authStore = useAuthStore()
+    // Drop a locally-expired session before checking access; pruneExpired()
+    // only clears state (no redirect), so the rule below still decides routing.
+    authStore.pruneExpired()
     if (!authStore.isLoggedIn) {
       next({ name: 'Login', query: { redirect: to.fullPath } })
     } else {

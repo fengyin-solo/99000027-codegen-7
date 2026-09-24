@@ -15,7 +15,10 @@ function authenticateToken(req, res, next) {
     req.user = user;
     next();
   } catch (err) {
-    return res.status(403).json({ error: 'Invalid or expired token' });
+    // Expired sessions must be distinguishable from malformed/forged tokens
+    // so the frontend can run the expire-and-renew flow instead of a silent failure.
+    const status = err.name === 'TokenExpiredError' ? 401 : 403;
+    return res.status(status).json({ error: 'Invalid or expired token' });
   }
 }
 

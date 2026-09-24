@@ -14,14 +14,20 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Handle 401 responses
+// Handle authentication failures.
+// 401/403 from any authenticated call means the session is gone server-side:
+// hand off to the auth store's invalid-session flow (clear state + redirect).
+// Network errors (offline/timeout) must NOT be treated as logout — otherwise a
+// dropped connection would look like a fake-logout / redirect loop.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('blog_token')
-      localStorage.removeItem('blog_username')
-      // Optionally redirect to login
+    const url = error.config?.url || ''
+    const isLoginRequest = url.includes('/auth/login')
+    const status = error.response?.status
+
+    if (!isLoginRequest && (status === 401 || status === 403)) {
+      window.dispatchEvent(new CustomEvent('blog:api-unauthorized'))
     }
     return Promise.reject(error)
   }
