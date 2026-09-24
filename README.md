@@ -112,12 +112,33 @@ The frontend will be available at `http://localhost:5173`
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
 | POST | `/api/auth/login` | Admin login | No |
+| POST | `/api/auth/renew` | Renew (extend) the current session | Yes |
+| GET | `/api/auth/session` | Check whether the session is still valid | Yes |
 | GET | `/api/articles` | List articles (with pagination and tag filter) | No |
 | GET | `/api/articles/:id` | Get single article | No |
 | POST | `/api/articles` | Create new article | Yes |
 | PUT | `/api/articles/:id` | Update article | Yes |
 | DELETE | `/api/articles/:id` | Delete article | Yes |
 | GET | `/api/tags` | Get all unique tags | No |
+
+> `/api/auth/session` and `/api/auth/renew` return `401` (missing token) or
+> `403` (invalid/expired token). Renewal only succeeds with a currently valid
+> token, so an expired session can never be revived without logging in again.
+
+### Admin session lifecycle
+
+- Protected admin pages show a session bar with the remaining valid time.
+  Within the last 5 minutes it switches to a warning with a **续期登录**
+  (renew) button.
+- Renewal is single-flight: repeated clicks share one request. Offline,
+  renewal is disabled and network failures never create a false login.
+- When the token expires (locally, or confirmed by the server), the login
+  state is cleared and the browser returns to the login page, preserving the
+  original protected URL in `?redirect=` so it is restored after re-login.
+- State stays consistent across tabs (login / renewal / logout propagate via
+  `storage` events, an older token never downgrades a newer one) and after
+  reopening the page (an already-expired token is cleaned up before render).
+
 
 ## Admin Credentials
 
@@ -129,7 +150,8 @@ The frontend will be available at `http://localhost:5173`
 ### Backend
 
 - Server port: `3001` (configurable via `PORT` environment variable)
-- JWT secret: `blog-platform-secret-key` (hardcoded in middleware/auth.js)
+- JWT secret: `blog-platform-secret-key` (overridable via `JWT_SECRET`)
+- Admin token lifetime: `24h` (overridable via `ADMIN_TOKEN_TTL`, e.g. `30s`/`2h`, for testing the expiry flow)
 - Database file: `backend/data/blog.db`
 
 ### Frontend

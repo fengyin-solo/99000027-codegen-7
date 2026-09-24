@@ -52,8 +52,13 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth) {
     const authStore = useAuthStore()
-    if (!authStore.isLoggedIn) {
-      next({ name: 'Login', query: { redirect: to.fullPath } })
+    // A present-but-expired token must never grant entry: requiresAuth checks
+    // real usability so a reload after local expiry goes straight to login.
+    if (!authStore.sessionUsable) {
+      next({
+        name: 'Login',
+        query: { redirect: to.fullPath, reason: 'expired' }
+      })
     } else {
       next()
     }

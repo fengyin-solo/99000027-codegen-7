@@ -14,17 +14,27 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Handle 401 responses
+// A definitive "invalid/expired session" response from the server must clear
+// the local login state. Network errors are deliberately ignored here so an
+// offline outage never causes a fake logout; the caller keeps the last known
+// state until the server can be consulted again (or the token expires locally).
+const AUTH_INVALIDATED = 'auth:invalidated'
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('blog_token')
-      localStorage.removeItem('blog_username')
-      // Optionally redirect to login
+    const status = error.response?.status
+    const url = error.config?.url || ''
+    const isLoginAttempt = url.includes('/auth/login')
+
+    if ((status === 401 || status === 403) && !isLoginAttempt) {
+      window.dispatchEvent(new CustomEvent(AUTH_INVALIDATED, {
+        detail: { reason: 'server' }
+      }))
     }
     return Promise.reject(error)
   }
 )
 
+export { AUTH_INVALIDATED }
 export default api

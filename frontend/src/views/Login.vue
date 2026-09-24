@@ -4,7 +4,16 @@
       <template #header>
         <h2 class="login-title">管理员登录</h2>
       </template>
-      
+
+      <el-alert
+        v-if="reasonMessage"
+        :title="reasonMessage"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="login-notice"
+      />
+
       <el-form
         ref="formRef"
         :model="form"
@@ -49,7 +58,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
@@ -75,20 +84,37 @@ const rules = {
   ]
 }
 
+const reasonMessages = {
+  expired: '登录状态已到期，请重新登录后继续操作',
+  server: '登录状态已失效，请重新登录',
+  external: '登录状态已在其他标签页退出，请重新登录'
+}
+const reasonMessage = computed(() => reasonMessages[route.query.reason] || '')
+
+// Only ever return to an internal, protected path. This keeps an external or
+// malformed redirect value from causing open redirects or navigation loops.
+function safeRedirect() {
+  const redirect = route.query.redirect
+  if (typeof redirect === 'string' && redirect.startsWith('/') &&
+      !redirect.startsWith('//') && redirect !== '/login') {
+    return redirect
+  }
+  return '/admin'
+}
+
 async function handleLogin() {
   if (!formRef.value) return
-  
+
   await formRef.value.validate(async (valid) => {
     if (!valid) return
-    
+
     loading.value = true
     try {
       await authStore.login(form.username, form.password)
       ElMessage.success('登录成功')
-      
-      // Redirect to the original page or admin dashboard
-      const redirect = route.query.redirect || '/admin'
-      router.push(redirect)
+
+      // Restore the original protected page the user was trying to reach.
+      router.push(safeRedirect())
     } catch (error) {
       const message = error.response?.data?.error || '登录失败'
       ElMessage.error(message)
@@ -118,5 +144,9 @@ async function handleLogin() {
   color: #303133;
   font-size: 20px;
   margin: 0;
+}
+
+.login-notice {
+  margin-bottom: 16px;
 }
 </style>
